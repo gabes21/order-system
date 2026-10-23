@@ -1,0 +1,17 @@
+services:
+    app:
+        image: order-system:1.0
+        build: .
+        ports:
+            - '8000:80'
+        environment:
+            APP_ENV: ${APP_ENV}
+            APP_KEY: ${APP_KEY}
+            APP_URL: ${APP_URL}
+            DB_CONNECTION: pgsql
+            DB_HOST: ${DB_HOST}
+            DB_PORT: ${DB_PORT}
+            DB_DATABASE: ${DB_DATABASE}
+            DB_USERNAME: ${DB_USERNAME}
+            DB_PASSWORD: ${DB_PASSWORD}
+            DB_SSLMODE: require

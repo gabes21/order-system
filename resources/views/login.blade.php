@@ -1,5 +1,5 @@
 <x-layout title="Login">
-    <form class="w-full max-w-sm mx-auto p-6" method="POST" action="/login">
+    <form class="w-full max-w-sm mx-auto p-6 flex flex-col justify-center items-center" method="POST" action="/login">
         @csrf
         <div class="mb-5">
             <label for="email" class="block mb-2.5 text-sm font-medium text-gray-900">Your email</label>

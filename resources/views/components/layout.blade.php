@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
     <head>
@@ -23,11 +22,19 @@
       @if ($errors->any())
         <p class="text-red-400 text-sm">{{ $errors->first() }}</p>
       @endif
-      <header class="w-full h-[10%] flex justify-center items-center">
+      <header class="w-full h-[10%] flex justify-center items-center relative">
           <h1 class="text-white text-[24px]">{{$title}}</h1>
+          @if (session()->has('supabase_access_token'))
+            <form action="{{ route('logout') }}" method="POST" class="absolute right-[5%]">
+                @csrf
+                <button type="submit" class="bg-gray-500 hover:bg-blue-500 px-4 py-2 rounded-[5px]">
+                    Log Out
+                </button>
+            </form>
+          @endif
       </header>
       <div class="flex items-center justify-center w-full transition-opacity opacity-100 duration-750 lg:grow starting:opacity-0 min-h-[90%]">
-        <main class="flex max-w-[335px] size-full flex-col-reverse lg:max-w-4xl lg:flex-row bg-white/40 border-1 border-white justify-center items-center rounded-[5px]">
+        <main class="flex max-w-[335px] size-full flex-col-reverse lg:max-w-4xl lg:flex-row bg-white/40 border-1 border-white justify-center items-start rounded-[5px] overflow-auto">
           {{ $slot }} 
         </main>
       </div>

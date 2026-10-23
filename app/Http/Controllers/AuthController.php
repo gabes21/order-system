@@ -43,7 +43,7 @@ class AuthController extends Controller
 
         $request->session()->put([
             'supabase_access_token' => $data['access_token'],
-            'supabase_refresh_token' => $data['refresh_token'],
+            'supabase_expires_at' => $data['expires_at'] ?? (time() + $data['expires_in']),
             'supabase_user' => $data['user'],
         ]);
 
