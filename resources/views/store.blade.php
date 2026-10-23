@@ -106,15 +106,17 @@
                                         RM {{ number_format($product->price, 2) }}
                                     </span>
 
-                                    @if ($product->stock_quantity > 0)
-                                        <span class="text-xs text-emerald-400">
+                                    <span
+                                        class="text-xs {{ $product->stock_quantity > 0 ? 'text-emerald-400' : 'text-red-400' }}"
+                                        data-stock-badge
+                                        data-product-id="{{ $product->id }}"
+                                    >
+                                        @if ($product->stock_quantity > 0)
                                             {{ $product->stock_quantity }} in stock
-                                        </span>
-                                    @else
-                                        <span class="text-xs text-red-400">
+                                        @else
                                             Out of stock
-                                        </span>
-                                    @endif
+                                        @endif
+                                    </span>
                                 </div>
 
                                 <label
@@ -240,6 +242,40 @@
                 }
             }
 
+            function updateStock(stockByProductId) {
+                if (!stockByProductId) return;
+
+                for (const [productId, stockValue] of Object.entries(stockByProductId)) {
+                    const quantity = Number(stockValue);
+                    const input = form.querySelector(
+                        `.quantity-input[data-product-id="${productId}"]`
+                    );
+                    const badge = form.querySelector(
+                        `[data-stock-badge][data-product-id="${productId}"]`
+                    );
+
+                    if (input) {
+                        input.max = quantity;
+                        input.disabled = quantity < 1;
+
+                        if (Number(input.value) > quantity) {
+                            input.value = quantity;
+                        }
+                    }
+
+                    if (badge) {
+                        badge.textContent = quantity > 0
+                            ? `${quantity} in stock`
+                            : 'Out of stock';
+                        badge.classList.toggle(
+                            'text-emerald-400',
+                            quantity > 0
+                        );
+                        badge.classList.toggle('text-red-400', quantity <= 0);
+                    }
+                }
+            }
+
             quantityInputs.forEach((input) => {
                 input.addEventListener('input', () => {
                     const max = Number(input.max);
@@ -285,25 +321,28 @@
 
                 try {
                     const response = await fetch('/api/orders', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector(
-                            'input[name="_token"]'
-                        ).value,
-                    },
-                    credentials: 'same-origin',
-                    body: JSON.stringify(payload),
-                });
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector(
+                                'input[name="_token"]'
+                            ).value,
+                        },
+                        credentials: 'same-origin',
+                        body: JSON.stringify(payload),
+                    });
 
-                const result = await response.json();
+                    const result = await response.json();
 
-                if (!response.ok) {
-                    throw new Error(
-                        result.message || 'Failed to create order.'
-                    );
-                }
+                    if (!response.ok) {
+                        updateStock(result.stock);
+                        updateTotal();
+
+                        throw new Error(
+                            result.message || 'Failed to create order.'
+                        );
+                    }
 
                     const order = result.order;
 
@@ -312,6 +351,7 @@
                         true
                     );
 
+                    updateStock(result.stock);
                     form.reset();
                     updateTotal();
                 } catch (error) {

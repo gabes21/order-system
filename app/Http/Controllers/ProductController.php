@@ -4,8 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class ProductController extends Controller
 {
@@ -79,7 +79,7 @@ class ProductController extends Controller
             )
             ->first();
 
-        if (!$product) {
+        if (! $product) {
             return response()->json(
                 [
                     'message' => 'Product not found.',
@@ -95,7 +95,7 @@ class ProductController extends Controller
     {
         $items = collect($request->input('items', []))
             ->filter(
-                fn($item) => is_array($item) &&
+                fn ($item) => is_array($item) &&
                     (int) ($item['quantity'] ?? 0) > 0,
             )
             ->values()
@@ -103,110 +103,117 @@ class ProductController extends Controller
 
         $request->merge(['items' => $items]);
 
-        $validated = $request->validate([
-            'customer_name' => ['required', 'string', 'max:255'],
-            'customer_email' => ['required', 'email', 'max:255'],
-            'items' => ['required', 'array', 'min:1'],
-            'items.*.product_id' => [
-                'required',
-                'integer',
-                'distinct',
-                'exists:products,id',
-            ],
-            'items.*.quantity' => ['required', 'integer', 'min:1'],
-        ]);
-
-        $order = DB::transaction(function () use ($validated) {
-            // Find an existing customer or create a new one.
-            $customer = DB::table('customers')
-                ->where('email', $validated['customer_email'])
-                ->first();
-
-            if (!$customer) {
-                $customerId = DB::table('customers')->insertGetId([
-                    'name' => $validated['customer_name'],
-                    'email' => $validated['customer_email'],
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-            } else {
-                $customerId = $customer->id;
-            }
-
-            $orderItems = [];
-            $total = 0;
-
-            foreach ($validated['items'] as $item) {
-                // Lock the product row to help prevent overselling.
-                $product = DB::table('products')
-                    ->where('id', $item['product_id'])
-                    ->where('is_active', true)
-                    ->lockForUpdate()
-                    ->first();
-
-                if (!$product) {
-                    throw ValidationException::withMessages([
-                        'items' => ['One of the products is unavailable.'],
-                    ]);
-                }
-
-                if ($product->stock_quantity < $item['quantity']) {
-                    throw ValidationException::withMessages([
-                        'items' => ["Insufficient stock for {$product->name}."],
-                    ]);
-                }
-
-                $unitPrice = (float) $product->price;
-                $subtotal = round($unitPrice * $item['quantity'], 2);
-
-                $total += $subtotal;
-
-                $orderItems[] = [
-                    'product_id' => $product->id,
-                    'quantity' => $item['quantity'],
-                    'unit_price' => $product->price,
-                ];
-
-                DB::table('products')
-                    ->where('id', $product->id)
-                    ->decrement('stock_quantity', $item['quantity']);
-            }
-
-            $orderNumber = 'ORD-' . Str::upper(Str::random(12));
-
-            $orderId = DB::table('orders')->insertGetId([
-                'customer_id' => $customerId,
-                'order_number' => $orderNumber,
-                'status' => 'pending',
-                'total_amount' => $total,
-                'created_at' => now(),
-                'updated_at' => now(),
+        try {
+            $validated = $request->validate([
+                'customer_name' => ['required', 'string', 'max:255'],
+                'customer_email' => ['required', 'email', 'max:255'],
+                'items' => ['required', 'array', 'min:1'],
+                'items.*.product_id' => [
+                    'required',
+                    'integer',
+                    'distinct',
+                    'exists:products,id',
+                ],
+                'items.*.quantity' => ['required', 'integer', 'min:1'],
             ]);
 
-            foreach ($orderItems as $item) {
-                DB::table('order_items')->insert([
-                    'order_id' => $orderId,
-                    'product_id' => $item['product_id'],
-                    'quantity' => $item['quantity'],
-                    'unit_price' => $item['unit_price'],
+            $order = DB::transaction(function () use ($validated) {
+                // Find an existing customer or create a new one.
+                $customer = DB::table('customers')
+                    ->where('email', $validated['customer_email'])
+                    ->first();
+
+                if (! $customer) {
+                    $customerId = DB::table('customers')->insertGetId([
+                        'name' => $validated['customer_name'],
+                        'email' => $validated['customer_email'],
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                } else {
+                    $customerId = $customer->id;
+                }
+
+                $orderItems = [];
+                $total = 0;
+
+                foreach ($validated['items'] as $item) {
+                    // Lock the product row to help prevent overselling.
+                    $product = DB::table('products')
+                        ->where('id', $item['product_id'])
+                        ->where('is_active', true)
+                        ->lockForUpdate()
+                        ->first();
+
+                    if (! $product) {
+                        throw ValidationException::withMessages([
+                            'items' => ['One of the products is unavailable.'],
+                        ]);
+                    }
+
+                    if ($product->stock_quantity < $item['quantity']) {
+                        throw ValidationException::withMessages([
+                            'items' => [
+                                "Insufficient stock for {$product->name}.",
+                            ],
+                        ]);
+                    }
+
+                    $unitPrice = (float) $product->price;
+                    $subtotal = round($unitPrice * $item['quantity'], 2);
+
+                    $total += $subtotal;
+
+                    $orderItems[] = [
+                        'product_id' => $product->id,
+                        'quantity' => $item['quantity'],
+                        'unit_price' => $product->price,
+                    ];
+
+                    DB::table('products')
+                        ->where('id', $product->id)
+                        ->decrement('stock_quantity', $item['quantity']);
+                }
+
+                $orderNumber = 'ORD-'.Str::upper(Str::random(12));
+
+                $orderId = DB::table('orders')->insertGetId([
+                    'customer_id' => $customerId,
+                    'order_number' => $orderNumber,
+                    'status' => 'pending',
+                    'total_amount' => $total,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
-            }
 
-            return [
-                'id' => $orderId,
-                'order_number' => $orderNumber,
-                'status' => 'pending',
-                'total_amount' => number_format($total, 2, '.', ''),
-            ];
-        });
+                foreach ($orderItems as $item) {
+                    DB::table('order_items')->insert([
+                        'order_id' => $orderId,
+                        'product_id' => $item['product_id'],
+                        'quantity' => $item['quantity'],
+                        'unit_price' => $item['unit_price'],
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
+
+                return [
+                    'id' => $orderId,
+                    'order_number' => $orderNumber,
+                    'status' => 'pending',
+                    'total_amount' => number_format($total, 2, '.', ''),
+                ];
+            });
+        } catch (ValidationException $exception) {
+            return $this->validationErrorResponse($request, $exception, $items);
+        }
 
         if ($request->expectsJson()) {
             return response()->json(
                 [
                     'message' => 'Order created successfully.',
                     'order' => $order,
+                    'stock' => $this->stockForItems($items),
                 ],
                 201,
             );
@@ -216,5 +223,43 @@ class ProductController extends Controller
             ->route('store')
             ->with('success', 'Order placed successfully!')
             ->with('order', $order);
+    }
+
+    private function validationErrorResponse(
+        Request $request,
+        ValidationException $exception,
+        array $items,
+    ) {
+        if (! $request->expectsJson()) {
+            throw $exception;
+        }
+
+        return response()->json(
+            [
+                'message' => $exception->getMessage(),
+                'errors' => $exception->errors(),
+                'stock' => $this->stockForItems($items),
+            ],
+            422,
+        );
+    }
+
+    private function stockForItems(array $items)
+    {
+        $productIds = collect($items)
+            ->pluck('product_id')
+            ->filter()
+            ->map(fn ($productId) => (int) $productId)
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($productIds === []) {
+            return [];
+        }
+
+        return DB::table('products')
+            ->whereIn('id', $productIds)
+            ->pluck('stock_quantity', 'id');
     }
 }
