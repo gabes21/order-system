@@ -4,6 +4,7 @@ WORKDIR /app
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist --no-interaction
 COPY . .
+RUN php scripts/check-php-leading-output.php
 RUN composer dump-autoload --optimize --no-dev
 
 # Stage 2: Frontend assets (skip if you have no Vite/Mix build)

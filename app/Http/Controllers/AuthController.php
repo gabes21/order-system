@@ -24,10 +24,12 @@ class AuthController extends Controller
                 'apikey' => config('services.supabase.key'),
             ])
             ->post(
-                rtrim(config('services.supabase.url'), '/')
-                    . '/auth/v1/token?grant_type=password',
-                $credentials
+                rtrim(config('services.supabase.url'), '/') .
+                    '/auth/v1/token?grant_type=password',
+                $credentials,
             );
+
+        // dd('response: ', $response);
 
         if ($response->failed()) {
             return back()
@@ -43,7 +45,8 @@ class AuthController extends Controller
 
         $request->session()->put([
             'supabase_access_token' => $data['access_token'],
-            'supabase_expires_at' => $data['expires_at'] ?? (time() + $data['expires_in']),
+            'supabase_expires_at' =>
+                $data['expires_at'] ?? time() + $data['expires_in'],
             'supabase_user' => $data['user'],
         ]);
 
